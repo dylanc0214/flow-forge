@@ -232,9 +232,10 @@ app.get('/api/requests', authenticateToken, async (req, res) => {
             FROM Requests r
             JOIN Users u ON r.created_by = u.id
             JOIN Workflows w ON r.workflow_id = w.id
+            WHERE r.created_by = ?
             ORDER BY r.created_at DESC
         `;
-        const [requests] = await pool.query(query);
+        const [requests] = await pool.query(query, [req.user.id]);
         res.json(requests);
     } catch (error) {
         console.error(error);
@@ -326,17 +327,45 @@ app.get('/api/approvals/stats', authenticateToken, async (req, res) => {
 });
 app.get('/api/approvals', authenticateToken, async (req, res) => {
      try {
-         // Get pending approvals for the current user's role (simplified assumption)
-         const query = `
-             SELECT a.*, r.title, r.amount, r.created_at, u.name as requestor_name
-             FROM Approvals a
-             JOIN Requests r ON a.request_id = r.id
-             JOIN Users u ON r.created_by = u.id
-             JOIN WorkflowSteps ws ON r.workflow_id = ws.workflow_id AND a.step_order = ws.step_order
-             WHERE a.status = 'Pending' AND ws.role_required = ?
-             ORDER BY r.created_at DESC
-         `;
-         const [approvals] = await pool.query(query, [req.user.role]);
+         const tab = req.query.tab || 'pending';
+         let query = '';
+         let params = [];
+
+         if (tab === 'history') {
+             query = `
+                 SELECT a.*, r.title, r.amount, r.created_at, u.name as requestor_name
+                 FROM Approvals a
+                 JOIN Requests r ON a.request_id = r.id
+                 JOIN Users u ON r.created_by = u.id
+                 WHERE a.approver_id = ? AND a.status IN ('Approved', 'Rejected')
+                 ORDER BY a.approved_at DESC
+             `;
+             params = [req.user.id];
+         } else if (tab === 'archived') {
+             query = `
+                 SELECT a.*, r.title, r.amount, r.created_at, u.name as requestor_name
+                 FROM Approvals a
+                 JOIN Requests r ON a.request_id = r.id
+                 JOIN Users u ON r.created_by = u.id
+                 JOIN WorkflowSteps ws ON r.workflow_id = ws.workflow_id AND a.step_order = ws.step_order
+                 WHERE ws.role_required = ? AND r.status IN ('Approved', 'Rejected')
+                 ORDER BY r.created_at DESC
+             `;
+             params = [req.user.role];
+         } else {
+             query = `
+                 SELECT a.*, r.title, r.amount, r.created_at, u.name as requestor_name
+                 FROM Approvals a
+                 JOIN Requests r ON a.request_id = r.id
+                 JOIN Users u ON r.created_by = u.id
+                 JOIN WorkflowSteps ws ON r.workflow_id = ws.workflow_id AND a.step_order = ws.step_order
+                 WHERE a.status = 'Pending' AND ws.role_required = ?
+                 ORDER BY r.created_at DESC
+             `;
+             params = [req.user.role];
+         }
+
+         const [approvals] = await pool.query(query, params);
          res.json(approvals);
      } catch (error) {
          console.error(error);

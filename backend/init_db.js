@@ -6,12 +6,13 @@ async function runSchema() {
     console.log("Connecting to Database...");
     
     // We connect without specifying a database first to run the DROP/CREATE commands
+require('dotenv').config();
     let connection;
     try {
         connection = await mysql.createConnection({
-            host: '161.97.95.16',
-            user: 'dylanc0214',
-            password: 'l0o0feHZpp42Zk',
+            host: process.env.DB_HOST || 'localhost',
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
             multipleStatements: true // Crucial to run the entire SQL file at once
         });
 

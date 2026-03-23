@@ -1,11 +1,12 @@
+require('dotenv').config();
 const mysql = require('mysql2/promise');
 
 async function seedData() {
     const pool = mysql.createPool({
-        host: '161.97.95.16',
-        user: 'dylanc0214',
-        password: 'l0o0feHZpp42Zk',
-        database: 'flowforge'
+        host: process.env.DB_HOST || 'db',
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME || 'flowforge'
     });
 
     try {

@@ -7,19 +7,20 @@ export default function PendingApprovals() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null); // store request ID being acted on
   const [comments, setComments] = useState({});
+  const [currentTab, setCurrentTab] = useState('pending');
 
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : { name: 'User' };
 
   useEffect(() => {
-    loadApprovals();
-  }, []);
+    loadApprovals(currentTab);
+  }, [currentTab]);
 
-  const loadApprovals = async () => {
+  const loadApprovals = async (tab = currentTab) => {
     setLoading(true);
     try {
       const [approvalData, statsData] = await Promise.all([
-        fetchPendingApprovals(),
+        fetchPendingApprovals(tab),
         fetchApprovalStats()
       ]);
       setApprovals(approvalData);
@@ -41,7 +42,7 @@ export default function PendingApprovals() {
         await rejectRequest(id, comment);
       }
       // Refresh list
-      loadApprovals();
+      loadApprovals(currentTab);
     } catch (err) {
       console.error('Failed to perform action', err);
       alert(err.response?.data?.error || 'Failed to perform action');
@@ -83,12 +84,14 @@ export default function PendingApprovals() {
         <div className="flex items-end justify-between mb-8">
           <div>
             <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Approvals</h2>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">You have {loading ? '...' : approvals.length} requests awaiting your review.</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              You have {loading ? '...' : approvals.length} {currentTab === 'pending' ? 'requests awaiting your review' : currentTab === 'history' ? 'reviewed requests' : 'archived requests'}.
+            </p>
           </div>
           <div className="flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-            <button className="px-4 py-1.5 text-sm font-bold bg-white dark:bg-slate-700 shadow-sm rounded-md text-slate-900 dark:text-white">Pending</button>
-            <button className="px-4 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">History</button>
-            <button className="px-4 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Archived</button>
+            <button onClick={() => setCurrentTab('pending')} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentTab === 'pending' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'}`}>Pending</button>
+            <button onClick={() => setCurrentTab('history')} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentTab === 'history' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'}`}>History</button>
+            <button onClick={() => setCurrentTab('archived')} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentTab === 'archived' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'}`}>Archived</button>
           </div>
         </div>
 
@@ -140,32 +143,46 @@ export default function PendingApprovals() {
                       </div>
                     </td>
                     <td className="px-6 py-5">
-                      <input
-                        value={comments[req.id] || ''}
-                        onChange={(e) => setComments({ ...comments, [req.id]: e.target.value })}
-                        className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-xs px-3 py-2 focus:ring-1 focus:ring-primary/40 focus:bg-white dark:focus:bg-slate-700 transition-all outline-none"
-                        placeholder="Add a comment (optional)..."
-                        type="text"
-                        disabled={actionLoading === req.id}
-                      />
+                      {currentTab === 'pending' ? (
+                        <input
+                          value={comments[req.id] || ''}
+                          onChange={(e) => setComments({ ...comments, [req.id]: e.target.value })}
+                          className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-xs px-3 py-2 focus:ring-1 focus:ring-primary/40 focus:bg-white dark:focus:bg-slate-700 transition-all outline-none"
+                          placeholder="Add a comment (optional)..."
+                          type="text"
+                          disabled={actionLoading === req.id}
+                        />
+                      ) : (
+                        <span className="text-sm text-slate-500 dark:text-slate-400">{req.comment || 'No comment provided.'}</span>
+                      )}
                     </td>
                     <td className="px-6 py-5 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleAction(req.id, 'reject')}
-                          disabled={actionLoading === req.id}
-                          className="px-3 py-1.5 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
-                        >
-                          Reject
-                        </button>
-                        <button
-                          onClick={() => handleAction(req.id, 'approve')}
-                          disabled={actionLoading === req.id}
-                          className="px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-                        >
-                          Approve
-                        </button>
-                      </div>
+                      {currentTab === 'pending' ? (
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleAction(req.id, 'reject')}
+                            disabled={actionLoading === req.id}
+                            className="px-3 py-1.5 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            onClick={() => handleAction(req.id, 'approve')}
+                            disabled={actionLoading === req.id}
+                            className="px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                        </div>
+                      ) : (
+                        <span className={`px-3 py-1 text-xs font-bold rounded-full ${
+                          req.status === 'Approved' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                          req.status === 'Rejected' ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' :
+                          'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                        }`}>
+                          {req.status}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

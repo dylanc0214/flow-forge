@@ -63,8 +63,8 @@ export const fetchMyRequests = async () => {
     return response.data;
 };
 
-export const fetchPendingApprovals = async () => {
-    const response = await api.get('/approvals');
+export const fetchPendingApprovals = async (tab = 'pending') => {
+    const response = await api.get(`/approvals?tab=${tab}`);
     return response.data;
 };
 
