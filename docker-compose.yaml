@@ -1,0 +1,52 @@
+version: "2.4"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: flowforge-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: flowforge
+      MYSQL_USER: dylanc0214
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./flowforge_schema.sql:/docker-entrypoint-initdb.d/flowforge_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    container_name: flowforge-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 5001
+      DB_HOST: db
+      DB_USER: flowforge
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: flowforge
+      JWT_SECRET: ${JWT_SECRET}
+    expose:
+      - "5001"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: flowforge-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8083:80" # VPS port 8083 -> container port 80
+
+volumes:
+  db_data:
+
